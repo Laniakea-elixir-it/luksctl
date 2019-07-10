@@ -1,0 +1,141 @@
+#!/usr/bin/env python
+"""
+ELIXIR-ITALY
+IBIOM-CNR
+
+Contributors:
+author: Tangaro Marco
+email: ma.tangaro@ibiom.cnr.it
+"""
+
+# Imports
+import sys, os
+import argparse
+import subprocess
+
+try:
+  import ConfigParser
+except ImportError:
+  import configparse
+
+#______________________________________
+# Custom libraries
+from luksctl import __version__
+from luksctl import LUKSCtl
+
+#______________________________________
+# read /etc/luks/luks-cryptdev.ini configuration file
+def is_virtual():
+  """
+  Return if we run in a virtual environtment.
+  Check supports venv && virtualenv
+  """
+  return (getattr(sys, 'base_prefix', sys.prefix) != sys.prefix or hasattr(sys, 'real_prefix'))
+
+def find_ini_file(ini_file):
+  path='/etc/luks'
+  if is_virtual() is True: path = sys.prefix + path
+  full_ini_file_path = path + '/' + ini_file
+  return full_ini_file_path
+
+luks_config_file = find_ini_file('luks-cryptdev.ini')
+
+#______________________________________
+# Logging
+from luksctl import set_log
+logs = set_log('/tmp/luksctl.log', 'DEBUG')
+
+#______________________________________
+def cli_options():
+  parser = argparse.ArgumentParser(description='LUKS storage management script')
+  parser.add_argument('action', choices=['open','close','status'], nargs='?', help='Action')
+  parser.add_argument('-V', '--version', action='store_true', dest='version', default=False, help='Print galaxyctl_libs version')
+  return parser.parse_args()
+
+#____________________________________
+def exec_command(command):
+  proc = subprocess.Popen( args=command, shell=True,  stdout=subprocess.PIPE, stderr=subprocess.PIPE )
+  communicateRes = proc.communicate()
+  stdOutValue, stdErrValue = communicateRes
+  status = proc.wait()
+  return stdOutValue, stdErrValue, status
+
+#____________________________________
+# dmsetup info
+def dmsetup_info(cryptdev):
+  command = 'dmsetup info /dev/mapper/%s' % cryptdev
+  stdOutValue, stdErrValue, status = exec_command(command)
+  return status
+
+#____________________________________
+# Display dmsetup info
+def display_dmsetup_info(cryptdev):
+  command = 'dmsetup info /dev/mapper/%s' % cryptdev
+  stdOutValue, stdErrValue, status = exec_command(command)
+
+  if str(status) == '0':
+    print stdOutValue
+    print 'Encrypted volume: [ OK ]'
+  else:
+    logs.error('[luksctl] %s' % stdErrValue)
+    print 'Encrypted volume: [ FAIL ]'
+
+#______________________________________
+# luksOpen device
+def luksopen_device(uuid, cryptdev, mountpoint):
+  cmd_open = 'cryptsetup luksOpen /dev/disk/by-uuid/%s %s' % (uuid, cryptdev)
+  exec_command(cmd_open)
+
+  cmd_mount = 'mount /dev/mapper/%s %s' % (cryptdev, mountpoint)
+  stdout, stderr, status = exec_command(cmd_mount)
+
+  if str(status) == '0':
+    cmd_ownership = 'chown galaxy:galaxy %s' % mountpoint
+    os.system(cmd_ownership)
+    display_dmsetup_info(cryptdev)
+  else:
+    print 'Encrypted volume mount: [ FAIL ]'
+
+#______________________________________
+# luksClose device
+def luksclose_device(mountpoint, cryptdev):
+  cmd_umount = 'umount %s' % mountpoint
+  exec_command(cmd_umount)
+
+  cmd_close = 'cryptsetup close %s' % cryptdev
+  exec_command(cmd_close)
+
+  # if dmsetup_setup fails (status 1) the volume has been correctly closed
+  if str(dmsetup_info(cryptdev)) == '0':
+    print 'Encrypted volume umount: [ FAIL ]'
+  else:
+    print 'Encrypted volume umount: [ OK ]'
+
+#______________________________________
+def luksctl():
+
+  if not os.geteuid() == 0:
+    sys.exit('[Error] Script must be run as root.')
+
+  options = cli_options()
+
+  if options.version is True:
+    print('Galaxyctl library: ' + __version__)
+    return
+
+  # Read luks ini file variables
+  luks = LUKSCtl(luks_config_file)
+
+  if options.action == "status":
+    display_dmsetup_info(luks.get_cryptdev())
+
+  if options.action == "open":
+    luksopen_device(luks.get_uuid(), luks.get_cryptdev(), luks.get_mountpoint())
+
+  if options.action == "close":
+    luksclose_device(luks.get_mountpoint(), luks.get_cryptdev())
+
+#______________________________________
+if __name__ == '__main__':
+  luksctl()
+
