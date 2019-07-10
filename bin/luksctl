@@ -40,10 +40,8 @@ def find_ini_file(ini_file):
 
 luks_config_file = find_ini_file('luks-cryptdev.ini')
 
-#______________________________________
-# Logging
-from luksctl import set_log
-logs = set_log('/tmp/luksctl.log', 'DEBUG')
+# Init luksct management object
+luks = LUKSCtl(luks_config_file)
 
 #______________________________________
 def cli_options():
@@ -51,65 +49,6 @@ def cli_options():
   parser.add_argument('action', choices=['open','close','status'], nargs='?', help='Action')
   parser.add_argument('-V', '--version', action='store_true', dest='version', default=False, help='Print galaxyctl_libs version')
   return parser.parse_args()
-
-#____________________________________
-def exec_command(command):
-  proc = subprocess.Popen( args=command, shell=True,  stdout=subprocess.PIPE, stderr=subprocess.PIPE )
-  communicateRes = proc.communicate()
-  stdOutValue, stdErrValue = communicateRes
-  status = proc.wait()
-  return stdOutValue, stdErrValue, status
-
-#____________________________________
-# dmsetup info
-def dmsetup_info(cryptdev):
-  command = 'dmsetup info /dev/mapper/%s' % cryptdev
-  stdOutValue, stdErrValue, status = exec_command(command)
-  return status
-
-#____________________________________
-# Display dmsetup info
-def display_dmsetup_info(cryptdev):
-  command = 'dmsetup info /dev/mapper/%s' % cryptdev
-  stdOutValue, stdErrValue, status = exec_command(command)
-
-  if str(status) == '0':
-    print stdOutValue
-    print 'Encrypted volume: [ OK ]'
-  else:
-    logs.error('[luksctl] %s' % stdErrValue)
-    print 'Encrypted volume: [ FAIL ]'
-
-#______________________________________
-# luksOpen device
-def luksopen_device(uuid, cryptdev, mountpoint):
-  cmd_open = 'cryptsetup luksOpen /dev/disk/by-uuid/%s %s' % (uuid, cryptdev)
-  exec_command(cmd_open)
-
-  cmd_mount = 'mount /dev/mapper/%s %s' % (cryptdev, mountpoint)
-  stdout, stderr, status = exec_command(cmd_mount)
-
-  if str(status) == '0':
-    cmd_ownership = 'chown galaxy:galaxy %s' % mountpoint
-    os.system(cmd_ownership)
-    display_dmsetup_info(cryptdev)
-  else:
-    print 'Encrypted volume mount: [ FAIL ]'
-
-#______________________________________
-# luksClose device
-def luksclose_device(mountpoint, cryptdev):
-  cmd_umount = 'umount %s' % mountpoint
-  exec_command(cmd_umount)
-
-  cmd_close = 'cryptsetup close %s' % cryptdev
-  exec_command(cmd_close)
-
-  # if dmsetup_setup fails (status 1) the volume has been correctly closed
-  if str(dmsetup_info(cryptdev)) == '0':
-    print 'Encrypted volume umount: [ FAIL ]'
-  else:
-    print 'Encrypted volume umount: [ OK ]'
 
 #______________________________________
 def luksctl():
@@ -120,22 +59,15 @@ def luksctl():
   options = cli_options()
 
   if options.version is True:
-    print('Galaxyctl library: ' + __version__)
+    print('Luksctl library: ' + __version__)
     return
 
-  # Read luks ini file variables
-  luks = LUKSCtl(luks_config_file)
+  if options.action == "status": luks.display_dmsetup_info()
 
-  if options.action == "status":
-    display_dmsetup_info(luks.get_cryptdev())
+  if options.action == "open": luks.luksopen_device()
 
-  if options.action == "open":
-    luksopen_device(luks.get_uuid(), luks.get_cryptdev(), luks.get_mountpoint())
-
-  if options.action == "close":
-    luksclose_device(luks.get_mountpoint(), luks.get_cryptdev())
+  if options.action == "close": luks.luksclose_device()
 
 #______________________________________
 if __name__ == '__main__':
   luksctl()
-
