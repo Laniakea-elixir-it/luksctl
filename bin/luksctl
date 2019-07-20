@@ -64,9 +64,11 @@ def luksctl():
 
   if options.action == "status": luks.display_dmsetup_info()
 
-  if options.action == "open": luks.luksopen_device()
+  elif options.action == "open": luks.luksopen_device()
 
-  if options.action == "close": luks.luksclose_device()
+  elif options.action == "close": luks.luksclose_device()
+
+  else: argparse.ArgumentParser().error("Invalid choice (choose from 'status', 'open', 'close')")
 
 #______________________________________
 if __name__ == '__main__':
