@@ -46,7 +46,7 @@ luks = LUKSCtl(luks_config_file)
 #______________________________________
 def cli_options():
   parser = argparse.ArgumentParser(description='LUKS storage management script')
-  parser.add_argument('action', choices=['open','close','status'], nargs='?', help='Action')
+  parser.add_argument('action', choices=['open','close','status','header-test','header-restore'], nargs='?', help='Action')
   parser.add_argument('-V', '--version', action='store_true', dest='version', default=False, help='Print galaxyctl_libs version')
   return parser.parse_args()
 
@@ -67,6 +67,10 @@ def luksctl():
   elif options.action == "open": luks.luksopen_device()
 
   elif options.action == "close": luks.luksclose_device()
+
+  elif options.action == "header-test": print 'placeholder'
+
+  elif options.action == "header-restore": print 'placeholder'
 
   else: argparse.ArgumentParser().error("Invalid choice (choose from 'status', 'open', 'close')")
 
