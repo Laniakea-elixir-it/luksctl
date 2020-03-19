@@ -8,7 +8,7 @@ LUKSctl documentation is available [here](https://laniakea.readthedocs.io/en/lat
 Usage
 -----
 
-!! LUKSctl requires root privileges.
+:warning: LUKSctl requires root privileges.
 
 ```bash
 # luksctl luks-volume open
