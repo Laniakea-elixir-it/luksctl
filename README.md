@@ -10,6 +10,8 @@ Usage
 
 :warning: LUKSctl requires root privileges.
 
+#. Open LUKS volume
+
 ```bash
 # luksctl luks-volume open
 ```
