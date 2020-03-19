@@ -1,8 +1,6 @@
 LUKSCTL
 =======
 
-LUKS volume control python application.
-
 LUKSctl is a python application to manage LUKS volumes on [Laniakea](https://laniakea-elixir-it.github.io/).
 
 LUKSctl documentation is available [here](https://laniakea.readthedocs.io/en/latest/admin_documentation/encryption/luksctl.html)
