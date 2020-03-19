@@ -47,6 +47,7 @@ class LUKSCtl:
     self.mapper = configParser.get('luks', 'mapper')
     self.mountpoint = configParser.get('luks', 'mountpoint')
     self.filesystem = configParser.get('luks', 'filesystem')
+    self.header_path = configParser.get('luks', 'header_path')
 
   #______________________________________
   # getter
@@ -59,6 +60,7 @@ class LUKSCtl:
   def get_mapper(self): return self.mapper
   def get_mountpoint(self): return self.mountpoint
   def get_filesystem(self): return self.filesystem
+  def get_header_path(self): return self.header_path
 
   #______________________________________
   # setter
@@ -71,6 +73,7 @@ class LUKSCtl:
   def set_mapper(self, mapper): self.mapper = mapper
   def set_mountpoint(self, mountpoint): self.mountpoint = mountpoint
   def set_filesystem(self, filesystem): self.filesystem = filesystem
+  def set_header_path(self, header_path): self.header_path = header_path
 
   #______________________________________
   def exec_command(self, command):
@@ -135,3 +138,61 @@ class LUKSCtl:
     else:
       print 'Encrypted volume umount: [ OK ]' 
       sys.exit(0)
+
+
+  #______________________________________
+  # LUKS header test open
+  def luksheader_test_open(self):
+
+    self.display_dmsetup_info()
+    if str(self.dmsetup_info()) != '0':
+
+      if not os.path.ismount(self.mountpoint):
+
+        self.set_cryptdev('test')
+  
+        cmd_test_open = 'cryptsetup -v --header ' + self.header_path + ' open ' + self.device + ' ' + self.cryptdev
+        self.exec_command(cmd_test_open)
+  
+        cmd_header_mount = 'mount /dev/mapper/' + self.cryptdev + ' ' + self.mountpoint
+        stdout, stderr, status = self.exec_command(cmd_header_mount)
+  
+        if str(status) == '0':
+          self.display_dmsetup_info()
+        else:
+          print('Mounting encrypted volume with header: [ FAIL ]')
+          sys.exit(1)
+
+      else:
+        print(self.mountpoint + ' is already a mountpoint: [ FAIL ]')
+        sys.exit(1)
+    
+    else:
+      print('Encrypted volume already mounted: [ FAIL ]')
+      sys.exit(1)
+
+  #______________________________________
+  # LUKS header test close
+  def luksheader_test_close(self):
+    self.set_cryptdev('test')
+    self.luksclose_device()
+
+  #______________________________________
+  # LUKS header restore
+  def luksheader_restore(self):
+
+    if str(self.dmsetup_info()) != '0':
+
+      if not os.path.ismount(self.mountpoint):
+
+        cmd_restore = 'cryptsetup luksHeaderRestore ' + self.device + ' --header-backup-file ' + self.header_path
+        proc = subprocess.Popen( args=cmd_restore, shell=True, stderr=subprocess.PIPE )
+        communicateRes = proc.communicate()
+
+      else:
+        print(self.mountpoint + ' is already a mountpoint: [ FAIL ]')
+        sys.exit(1)
+
+    else:
+      print('Encrypted volume already mounted: [ FAIL ]')
+      sys.exit(1)

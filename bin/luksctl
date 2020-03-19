@@ -46,8 +46,16 @@ luks = LUKSCtl(luks_config_file)
 #______________________________________
 def cli_options():
   parser = argparse.ArgumentParser(description='LUKS storage management script')
-  parser.add_argument('action', choices=['open','close','status','header-test','header-restore'], nargs='?', help='Action')
-  parser.add_argument('-V', '--version', action='store_true', dest='version', default=False, help='Print galaxyctl_libs version')
+  parser.add_argument('-V', '--version', action='store_true', dest='version', default=False, help='Print luksctl version')
+
+  subparsers = parser.add_subparsers()
+
+  parser_volume = subparsers.add_parser('luks-volume')
+  parser_volume.add_argument('volume_action', choices=['open','close','status'], nargs='?', help='LUKS volume available options')
+
+  parser_header = subparsers.add_parser('luks-header')
+  parser_header.add_argument('header_action', choices=['test-open','test-close','restore'], nargs='?', help='LUKS Header available  options')
+
   return parser.parse_args()
 
 #______________________________________
@@ -62,17 +70,33 @@ def luksctl():
     print('Luksctl library: ' + __version__)
     return
 
-  if options.action == "status": luks.display_dmsetup_info()
+  try:
+    options.volume_action
+  except AttributeError:
+    options.volume_action = None
+    pass
 
-  elif options.action == "open": luks.luksopen_device()
+  try:
+    options.header_action
+  except AttributeError:
+    options.header_action = None
+    pass
 
-  elif options.action == "close": luks.luksclose_device()
+  if options.volume_action is not None:
 
-  elif options.action == "header-test": print 'placeholder'
+    if options.volume_action == "status": luks.display_dmsetup_info()
 
-  elif options.action == "header-restore": print 'placeholder'
+    elif options.volume_action == "open": luks.luksopen_device()
 
-  else: argparse.ArgumentParser().error("Invalid choice (choose from 'status', 'open', 'close')")
+    elif options.volume_action == "close": luks.luksclose_device()
+
+  elif options.header_action is not None:
+
+    if options.header_action == "test-open": luks.luksheader_test_open()
+
+    if options.header_action == "test-close": luks.luksheader_test_close()
+
+    if options.header_action == "restore": luks.luksheader_restore()
 
 #______________________________________
 if __name__ == '__main__':
