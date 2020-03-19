@@ -144,7 +144,6 @@ class LUKSCtl:
   # LUKS header test open
   def luksheader_test_open(self):
 
-    self.display_dmsetup_info()
     if str(self.dmsetup_info()) != '0':
 
       if not os.path.ismount(self.mountpoint):
